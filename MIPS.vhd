@@ -10,12 +10,12 @@ Port (
 	HEX0  : out std_logic_vector(6 downto 0);
 	HEX1  : out std_logic_vector(6 downto 0);
 	HEX2  : out std_logic_vector(6 downto 0);
-	HEX3  : out std_logic_vector(6 downto 0)
---	INS    : out signed(31 downto 0);
---	PCOUT  : out signed(31 downto 0);
---	STATE  : out natural;
---	MEMOUT : out std_logic_vector(31 downto 0);
---	sA     : out signed(31 downto 0)
+	HEX3  : out std_logic_vector(6 downto 0);
+	INS    : out signed(31 downto 0);
+	PCOUT  : out signed(31 downto 0);
+	STATE  : out natural;
+	MEMOUT : out std_logic_vector(31 downto 0);
+	sA     : out signed(31 downto 0)
 );
 End MIPS;
 
@@ -31,13 +31,16 @@ Component ControlUnit is
 Port(
 	Clock      : in  std_logic;
 	Opcode     : in  std_logic_vector(5 downto 0);
+	IO         : in  std_logic;
+	Stall      : in  std_logic;
+	Done       : in  std_logic;
 	Branch     : out std_logic;
 	PCWrite    : out std_logic;
 	IorD       : out std_logic;
 	MemRead    : out std_logic;
 	MemWrite   : out std_logic;
 	MDRWrite   : out std_logic;
-	MemToReg   : out std_logic;
+	RegDataSrc : out std_logic_vector(1 downto 0);
 	IRWrite    : out std_logic;
 	PCSrc      : out std_logic_vector(1 downto 0);
 	ALUOp      : out std_logic_vector(1 downto 0);
@@ -118,6 +121,7 @@ Port (
 	RX    : in  std_logic;
 	TX    : out std_logic;
 	Stall : out std_logic;
+	Done  : out std_logic;
 	Clock : in std_logic
 );
 End Component;
@@ -129,7 +133,7 @@ Signal IorD        : std_logic;
 Signal MemRead     : std_logic;
 Signal MemWrite    : std_logic;
 Signal MDRWrite    : std_logic;
-Signal MemToReg    : std_logic;
+Signal RegDataSrc  : std_logic_vector(1 downto 0);
 Signal IRWrite     : std_logic;
 Signal PCSrc       : std_logic_vector(1 downto 0);
 Signal ALUOp       : std_logic_vector(1 downto 0);
@@ -174,9 +178,10 @@ Begin
 	With IorD Select IorDMUX <=
 		InstructionAdress when '0',
 		ALUOut            when '1';
-	With MemToReg Select MemToRegMUX <=
-		ALUOut     when '0',
-		MemoryData when '1';
+	With RegDataSrc Select MemToRegMUX <=
+		ALUOut     when "00",
+		MemoryData when "01",
+		NULL       when Others;
 	With RegDst Select RegDstMUX <=
 		std_logic_vector(Instruction(20 downto 16)) when "00",
 		std_logic_vector(Instruction(15 downto 11)) when "01",
@@ -191,11 +196,11 @@ Begin
 		SignExtend                   when "10",
 		SignExtend(29 downto 0)&"00" when "11";
 
-	DV: Divisor Port Map(ClockIn,Clock);
--- Clock <= ClockIn;
+--	DV: Divisor Port Map(ClockIn,Clock);
+   Clock <= ClockIn;
 		
-	CU: ControlUnit Port Map(Clock,std_logic_vector(Instruction(31 downto 26)),Branch,PCWrite,
-	                         IorD,MemRead,MemWrite,MDRWrite,MemToReg,IRWrite,PCSrc,ALUOp,ALUSrcB,
+	CU: ControlUnit Port Map(Clock,std_logic_vector(Instruction(31 downto 26)),'0','0','0',Branch,PCWrite,
+	                         IorD,MemRead,MemWrite,MDRWrite,RegDataSrc,IRWrite,PCSrc,ALUOp,ALUSrcB,
 									 ALUSrcA,ALUOutWrite,RegWrite,RegRead,RegDst);
 	PC: Register32 Port Map(PCSrcMUX,InstructionAdress,PCWrite or (Branch and Zero),Clock);
 	RAM: SynchronousRAM Port Map(Clock,std_logic_vector(B),to_integer(IorDMUX(6 downto 2)),
@@ -212,9 +217,8 @@ Begin
 	ALUOutR: Register32 Port Map (ALUResult,ALUOut,ALUOutWrite,Clock);
 	MDR: Register32 Port Map (signed(MemoryOutput),MemoryData,MDRWrite,Clock);
 	
-	
---	INS <= Instruction;
---	sA <= A;
---	MEMOUT <= MemoryOutput;
---	PCOUT <= InstructionAdress;
+	INS <= Instruction;
+	sA <= A;
+	MEMOUT <= MemoryOutput;
+	PCOUT <= InstructionAdress;
 End Main;

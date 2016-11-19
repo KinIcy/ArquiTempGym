@@ -15,6 +15,7 @@ Port (
 	RX    : in  std_logic;
 	TX    : out std_logic;
 	Stall : out std_logic;
+	Done  : out std_logic;
 	Clock : in std_logic
 );
 End IOUnit;
@@ -43,7 +44,7 @@ Begin
 				When 0 => Output <= RESIZE(signed(KEY(0 downto 0)),32);
 				When 1 => Output <= RESIZE(signed(KEY(1 downto 1)),32);
 				When 2 => Output <= RESIZE(signed(KEY(2 downto 2)),32);
-				When 3 => Output <= RESIZE(signed(KEY(3 downto 3)),32);	
+				When 3 => Output <= RESIZE(signed(KEY(3 downto 3)),32);
 				When 4 => ASCII0 <= to_integer(Input);
 				When 5 => ASCII1 <= to_integer(Input);
 				When 6 => ASCII2 <= to_integer(Input);
