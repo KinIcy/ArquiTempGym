@@ -1,0 +1,6 @@
+*.bak
+*.zip
+simulation
+output_files
+db
+incremental_db
