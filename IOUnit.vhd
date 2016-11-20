@@ -7,6 +7,7 @@ Port (
 	ID    : in natural range 0 to 15;
 	Input : in signed(31 downto 0);
 	Output: out signed(31 downto 0);
+	Enable: in std_logic;
 	KEY   : in std_logic_vector(3 downto 0);
 	HEX0  : out std_logic_vector(6 downto 0);
 	HEX1  : out std_logic_vector(6 downto 0);

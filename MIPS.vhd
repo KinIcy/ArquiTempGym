@@ -11,6 +11,8 @@ Port (
 	HEX1  : out std_logic_vector(6 downto 0);
 	HEX2  : out std_logic_vector(6 downto 0);
 	HEX3  : out std_logic_vector(6 downto 0);
+	RX    : in  std_logic;
+	TX    : out std_logic;
 	INS    : out signed(31 downto 0);
 	PCOUT  : out signed(31 downto 0);
 	STATE  : out natural;
@@ -96,7 +98,8 @@ Component ALUControl is
 		Functor    : in  std_logic_vector(5 downto 0);
 		Operator   : in  std_logic_vector(1 downto 0);
 		Operation  : out std_logic_vector(2 downto 0);
-		Opcode     : in  std_logic_vector(5 downto 0)
+		Opcode     : in  std_logic_vector(5 downto 0);
+		IO         : out std_logic
 	);
 End Component;
 Component ALU is
@@ -113,6 +116,7 @@ Port (
 	ID    : in natural range 0 to 15;
 	Input : in signed(31 downto 0);
 	Output: out signed(31 downto 0);
+	Enable: in std_logic;
 	KEY   : in std_logic_vector(3 downto 0);
 	HEX0  : out std_logic_vector(6 downto 0);
 	HEX1  : out std_logic_vector(6 downto 0);
@@ -124,6 +128,13 @@ Port (
 	Done  : out std_logic;
 	Clock : in std_logic
 );
+End Component;
+Component MUX32 is
+	Port (
+		Selector : in  std_logic_vector(1 downto 0);
+		Input0, Input1, Input2, Input3 : in signed(31 downto 0);
+		Output: out signed(31 downto 0)
+	);
 End Component;
 
 Signal Clock       : std_logic;
@@ -155,10 +166,14 @@ Signal Zero        : std_logic;
 Signal ALUResult   : signed(31 downto 0);
 Signal ALuOut      : signed(31 downto 0);
 Signal MemoryData  : signed(31 downto 0);
+Signal IO          : std_logic;
+Signal Done        : std_logic;
+Signal Stall       : std_logic;
+Signal IOOut       : signed(31 downto 0);
 
 Signal PCSrcMUX    : signed(31 downto 0);
 Signal IorDMUX     : signed(31 downto 0);
-Signal MemToRegMUX : signed(31 downto 0);
+Signal RegDataSrcMUX : signed(31 downto 0);
 Signal RegDstMUX   : std_logic_vector(4 downto 0);
 Signal ASrcMUX     : signed(31 downto 0);
 Signal BSrcMUX     : signed(31 downto 0);
@@ -178,9 +193,10 @@ Begin
 	With IorD Select IorDMUX <=
 		InstructionAdress when '0',
 		ALUOut            when '1';
-	With RegDataSrc Select MemToRegMUX <=
+	With RegDataSrc Select RegDataSrcMUX <=
 		ALUOut     when "00",
 		MemoryData when "01",
+		IOOut      when "10",
 		NULL       when Others;
 	With RegDst Select RegDstMUX <=
 		std_logic_vector(Instruction(20 downto 16)) when "00",
@@ -199,7 +215,7 @@ Begin
 --	DV: Divisor Port Map(ClockIn,Clock);
    Clock <= ClockIn;
 		
-	CU: ControlUnit Port Map(Clock,std_logic_vector(Instruction(31 downto 26)),'0','0','0',Branch,PCWrite,
+	CU: ControlUnit Port Map(Clock,std_logic_vector(Instruction(31 downto 26)),'0',Stall,Done,Branch,PCWrite,
 	                         IorD,MemRead,MemWrite,MDRWrite,RegDataSrc,IRWrite,PCSrc,ALUOp,ALUSrcB,
 									 ALUSrcA,ALUOutWrite,RegWrite,RegRead,RegDst);
 	PC: Register32 Port Map(PCSrcMUX,InstructionAdress,PCWrite or (Branch and Zero),Clock);
@@ -208,14 +224,15 @@ Begin
 	IR: Register32D Port Map(signed(MemoryOutput),Instruction,IRWrite,Clock);
 	RF: RegisterFile Port Map (std_logic_vector(Instruction(25 downto 21)),
 	                           std_logic_vector(Instruction(20 downto 16)),	RegDstMUX, RegWrite,
-										Clock, std_logic_vector(MemToRegMUX),rfA,rfB);
+										Clock, std_logic_vector(RegDataSrcMUX),rfA,rfB);
 	rA: Register32 Port Map (signed(rfA),A,regRead,Clock);
 	rB: Register32 Port Map (signed(rfB),B,regRead,Clock);
 	ALUC: ALUControl Port Map (std_logic_vector(Instruction(5 downto 0)),ALUOp,Operation,
-	                          std_logic_vector(Instruction(31 downto 26)));
+	                          std_logic_vector(Instruction(31 downto 26)),IO);
 	ALU0: ALU Port Map (ASrcMUX,BSrcMUX,Operation,Zero,ALUResult);
 	ALUOutR: Register32 Port Map (ALUResult,ALUOut,ALUOutWrite,Clock);
 	MDR: Register32 Port Map (signed(MemoryOutput),MemoryData,MDRWrite,Clock);
+	IOU: IOUnit Port Map (to_integer(B(3 downto 0)),ALUOut,IOOut,IO,KEY,HEX0,HEX1,HEX2,HEX3,RX,TX,Stall,Done,Clock);
 	
 	INS <= Instruction;
 	sA <= A;

@@ -25,6 +25,7 @@ begin
 		A and B         when "000", -- And
 		A or B          when "001", -- Or
 		resize(A+B,32)  when "010", -- Suma
+		A					 when "100", -- Paso
 		resize(A-B,32)  when "110", -- Resta
 		SLT             when "111", -- Set On Less Than;
 		(Others => '0') when others;
